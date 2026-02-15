@@ -11,34 +11,45 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates]
 });
 
+client.on('error', console.error);
+process.on('unhandledRejection', console.error);
+
 client.once('ready', async () => {
-  console.log(`Logged in as ${client.user.tag}`);
+  try {
+    console.log(`Logged in as ${client.user.tag}`);
 
-  const guild = client.guilds.cache.get(GUILD_ID);
-  const channel = guild.channels.cache.get(VOICE_CHANNEL_ID);
+    const guild = client.guilds.cache.get(GUILD_ID);
+    if (!guild) throw new Error("Guild not found");
 
-  const connection = joinVoiceChannel({
-    channelId: channel.id,
-    guildId: guild.id,
-    adapterCreator: guild.voiceAdapterCreator,
-  });
+    const channel = guild.channels.cache.get(VOICE_CHANNEL_ID);
+    if (!channel) throw new Error("Voice channel not found");
 
-  const ffmpeg = spawn('ffmpeg', [
-    '-re',
-    '-i', STREAM_URL,
-    '-f', 's16le',
-    '-ar', '48000',
-    '-ac', '2',
-    'pipe:1'
-  ]);
+    const connection = joinVoiceChannel({
+      channelId: channel.id,
+      guildId: guild.id,
+      adapterCreator: guild.voiceAdapterCreator,
+    });
 
-  const resource = createAudioResource(ffmpeg.stdout, {
-    inputType: StreamType.Raw
-  });
+    const ffmpeg = spawn('ffmpeg', [
+      '-re',
+      '-i', STREAM_URL,
+      '-f', 's16le',
+      '-ar', '48000',
+      '-ac', '2',
+      'pipe:1'
+    ]);
 
-  const player = createAudioPlayer();
-  player.play(resource);
-  connection.subscribe(player);
+    const resource = createAudioResource(ffmpeg.stdout, {
+      inputType: StreamType.Raw
+    });
+
+    const player = createAudioPlayer();
+    player.play(resource);
+    connection.subscribe(player);
+
+  } catch (err) {
+    console.error("ERROR:", err);
+  }
 });
 
 client.login(TOKEN);
